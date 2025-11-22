@@ -1,370 +1,518 @@
-
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Trash2, Users, Save, CheckCircle2, Clock, 
-  Search, X, Calendar, Edit2, Check, Download, 
-  Moon, Sun, ArrowUpDown 
-} from 'lucide-react';
-
-export default function App() {
-  // --- STATE MANAGEMENT ---
-
-  // Names Data
-  const [names, setNames] = useState(() => {
-    try {
-      const savedNames = localStorage.getItem('myPeopleList');
-      return savedNames ? JSON.parse(savedNames) : [];
-    } catch (error) {
-      return [];
-    }
-  });
-
-  // Dark Mode
-  const [darkMode, setDarkMode] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('pk_darkMode')) || false;
-    } catch { return false; }
-  });
-
-  // Inputs & Filters
-  const [inputValue, setInputValue] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('newest'); // newest, oldest, az, za
-  const [notification, setNotification] = useState(null);
-
-  // Editing State
-  const [editingId, setEditingId] = useState(null);
-  const [editValue, setEditValue] = useState('');
-
-  // --- EFFECTS ---
-
-  // Save Names
-  useEffect(() => {
-    localStorage.setItem('myPeopleList', JSON.stringify(names));
-  }, [names]);
-
-  // Save/Apply Dark Mode
-  useEffect(() => {
-    localStorage.setItem('pk_darkMode', JSON.stringify(darkMode));
-  }, [darkMode]);
-
-  // --- ACTIONS ---
-
-  const handleAddName = (e) => {
-    e.preventDefault();
-    const trimmedName = inputValue.trim();
-    if (trimmedName) {
-      const newPerson = {
-        id: Date.now(),
-        text: trimmedName,
-        createdAt: new Date().toISOString()
-      };
-      setNames(prev => [newPerson, ...prev]);
-      setInputValue('');
-      showNotification('Person added successfully!');
-    }
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this person?')) {
-      setNames(prev => prev.filter(name => name.id !== id));
-      showNotification('Entry removed.');
-    }
-  };
-
-  const startEditing = (person) => {
-    setEditingId(person.id);
-    setEditValue(person.text);
-  };
-
-  const saveEdit = () => {
-    if (editValue.trim()) {
-      setNames(prev => prev.map(p => 
-        p.id === editingId ? { ...p, text: editValue.trim() } : p
-      ));
-      setEditingId(null);
-      showNotification('Name updated!');
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValue('');
-  };
-
-  const handleClearAll = () => {
-    if (window.confirm('Are you sure you want to clear the entire list?')) {
-      setNames([]);
-      showNotification('All entries cleared.');
-    }
-  };
-
-  const handleExport = () => {
-    if (names.length === 0) return;
-
-    // Create CSV content
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + "Name,Created At\n"
-      + names.map(row => `${row.text},${row.createdAt}`).join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "people_list.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>People Keeper Ultimate</title>
     
-    showNotification('List downloaded as CSV');
-  };
-
-  const showNotification = (msg) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 2000);
-  };
-
-  // --- HELPERS ---
-
-  const formatDate = (isoString) => {
-    const date = new Date(isoString || Date.now());
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    }).format(date);
-  };
-
-  // --- FILTERING & SORTING ---
-
-  const getProcessedNames = () => {
-    // 1. Filter
-    let processed = names.filter(person => 
-      person.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // 2. Sort
-    processed.sort((a, b) => {
-      if (sortOption === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
-      if (sortOption === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-      if (sortOption === 'az') return a.text.localeCompare(b.text);
-      if (sortOption === 'za') return b.text.localeCompare(a.text);
-      return 0;
-    });
-
-    return processed;
-  };
-
-  const displayedNames = getProcessedNames();
-
-  return (
-    <div className={`min-h-screen transition-colors duration-300 font-sans ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
-      <div className="max-w-xl mx-auto py-8 px-4 sm:px-6">
-        
-        {/* Header with Dark Mode Toggle */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-             <div className={`p-2 rounded-xl shadow-lg ${darkMode ? 'bg-indigo-500' : 'bg-indigo-600'}`}>
-               <Users className="w-6 h-6 text-white" />
-             </div>
-             <div>
-               <h1 className="text-2xl font-bold tracking-tight">People Keeper</h1>
-               <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Ultimate Edition</p>
-             </div>
-          </div>
-          <button 
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-2 rounded-full transition-colors ${darkMode ? 'bg-slate-800 text-yellow-400 hover:bg-slate-700' : 'bg-white text-slate-600 hover:bg-slate-200 shadow-sm'}`}
-            title="Toggle Dark Mode"
-          >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* Controls Container */}
-        <div className={`rounded-2xl shadow-xl overflow-hidden mb-6 border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
-          <div className="p-5 space-y-5">
-            
-            {/* Input Form */}
-            <form onSubmit={handleAddName}>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Add new name..."
-                  className={`block w-full rounded-xl border p-3 outline-none transition-all ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500'}`}
-                />
-                <button
-                  type="submit"
-                  disabled={!inputValue.trim()}
-                  className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-white shadow-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-            </form>
-
-            {/* Toolbar: Search & Sort */}
-            {names.length > 0 && (
-              <div className={`pt-4 border-t flex flex-col sm:flex-row gap-3 ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                {/* Search */}
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className={`h-4 w-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search..."
-                    className={`block w-full pl-10 rounded-lg border text-sm p-2.5 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-600 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500'}`}
-                  />
-                  {searchTerm && (
-                    <button 
-                      onClick={() => setSearchTerm('')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-indigo-500"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Sort Dropdown */}
-                <div className="relative min-w-[140px]">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <ArrowUpDown className={`h-3 w-3 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                  </div>
-                  <select 
-                    value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value)}
-                    className={`block w-full pl-8 pr-3 rounded-lg border text-sm p-2.5 outline-none appearance-none cursor-pointer transition-colors ${darkMode ? 'bg-slate-900 border-slate-600 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500'}`}
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="az">Name (A-Z)</option>
-                    <option value="za">Name (Z-A)</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Global Actions */}
-        {names.length > 0 && (
-          <div className="flex items-center justify-between px-1 mb-4">
-             <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-               List ({displayedNames.length})
-             </span>
-             <div className="flex gap-2">
-                <button 
-                  onClick={handleExport}
-                  className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${darkMode ? 'text-indigo-400 hover:bg-slate-800' : 'text-indigo-600 hover:bg-indigo-50'}`}
-                >
-                  <Download className="w-3 h-3" /> Export
-                </button>
-                <button 
-                  onClick={handleClearAll}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${darkMode ? 'text-red-400 hover:bg-slate-800' : 'text-red-500 hover:bg-red-50'}`}
-                >
-                  Clear All
-                </button>
-             </div>
-          </div>
-        )}
-
-        {/* Main List */}
-        <div className="space-y-3 pb-20">
-          {names.length === 0 ? (
-            <div className={`text-center py-16 rounded-2xl border border-dashed ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300'}`}>
-              <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 ${darkMode ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                <Calendar className={`w-6 h-6 ${darkMode ? 'text-slate-500' : 'text-slate-300'}`} />
-              </div>
-              <p className={`font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>List is empty</p>
-            </div>
-          ) : displayedNames.length === 0 ? (
-             <div className="text-center py-12">
-              <p className="text-slate-500">No matches for "{searchTerm}"</p>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {displayedNames.map((person) => (
-                <li 
-                  key={person.id}
-                  className={`group p-4 rounded-xl shadow-sm border transition-all duration-200 
-                    ${editingId === person.id 
-                      ? (darkMode ? 'bg-slate-800 border-indigo-500 ring-1 ring-indigo-500' : 'bg-white border-indigo-500 ring-1 ring-indigo-500')
-                      : (darkMode ? 'bg-slate-800 border-slate-700 hover:border-slate-600' : 'bg-white border-slate-200/60 hover:border-indigo-300 hover:shadow-md')
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translate(-50%, 20px)' },
+                            '100%': { opacity: '1', transform: 'translate(-50%, 0)' },
+                        }
                     }
-                  `}
-                >
-                  {editingId === person.id ? (
-                    // EDIT MODE
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="text" 
-                        value={editValue} 
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className={`flex-1 min-w-0 bg-transparent border-b outline-none text-sm py-1 font-medium ${darkMode ? 'text-white border-indigo-500' : 'text-slate-800 border-indigo-500'}`}
-                        autoFocus
-                      />
-                      <button onClick={saveEdit} className="p-1.5 rounded-md bg-green-500 text-white hover:bg-green-600">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button onClick={cancelEdit} className="p-1.5 rounded-md bg-slate-500 text-white hover:bg-slate-600">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    // VIEW MODE
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
-                          {person.text.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`font-semibold truncate pr-4 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                            {person.text}
-                          </p>
-                          <div className="flex items-center text-xs text-slate-400 mt-0.5 gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatDate(person.createdAt || person.id)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => startEditing(person)}
-                          className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-indigo-400' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(person.id)}
-                          className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-700 hover:text-red-400' : 'text-slate-400 hover:bg-red-50 hover:text-red-600'}`}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Hide scrollbar for clean look in some browsers */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen transition-colors duration-300 bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100 font-sans">
+
+    <div class="max-w-xl mx-auto py-8 px-4 sm:px-6">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-3">
+                <div class="p-2 rounded-xl shadow-lg bg-indigo-600 dark:bg-indigo-500 transition-colors">
+                    <!-- Icon: Users -->
+                    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">People Keeper</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ultimate Edition</p>
+                </div>
+            </div>
+            <button id="themeToggle" class="p-2 rounded-full transition-colors bg-white text-slate-600 hover:bg-slate-200 shadow-sm dark:bg-slate-800 dark:text-yellow-400 dark:hover:bg-slate-700">
+                <!-- Icon inserted by JS -->
+            </button>
         </div>
 
-        {/* Toast Notification */}
-        {notification && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 text-sm animate-fade-in-up z-50 font-medium border border-white/10">
-            <CheckCircle2 className="w-4 h-4 text-green-400" />
-            {notification}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+        <!-- Controls Container -->
+        <div class="rounded-2xl shadow-xl overflow-hidden mb-6 border transition-colors bg-white border-slate-100 shadow-slate-200/50 dark:bg-slate-800 dark:border-slate-700 dark:shadow-black/20">
+            <div class="p-5 space-y-5">
+                
+                <!-- Input Form -->
+                <form id="addForm">
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            id="nameInput" 
+                            placeholder="Add new name..." 
+                            class="block w-full rounded-xl border p-3 outline-none transition-all bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-slate-400 dark:focus:border-indigo-500"
+                        >
+                        <button 
+                            type="submit" 
+                            id="addButton"
+                            disabled
+                            class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-white shadow-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                            <!-- Icon: Plus -->
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                    </div>
+                </form>
 
+                <!-- Toolbar -->
+                <div id="toolbar" class="hidden pt-4 border-t flex flex-col sm:flex-row gap-3 border-slate-100 dark:border-slate-700">
+                    <!-- Search -->
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="searchInput"
+                            placeholder="Search..." 
+                            class="block w-full pl-10 rounded-lg border text-sm p-2.5 outline-none transition-colors bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-600 dark:text-white dark:focus:border-indigo-500"
+                        >
+                        <button id="clearSearch" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-indigo-500">
+                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+
+                    <!-- Sort -->
+                    <div class="relative min-w-[140px]">
+                        <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                            <svg class="h-3 w-3 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 16-4 4-4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg>
+                        </div>
+                        <select 
+                            id="sortSelect"
+                            class="block w-full pl-8 pr-3 rounded-lg border text-sm p-2.5 outline-none appearance-none cursor-pointer transition-colors bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-600 dark:text-white dark:focus:border-indigo-500"
+                        >
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="az">Name (A-Z)</option>
+                            <option value="za">Name (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Actions -->
+        <div id="globalActions" class="hidden flex items-center justify-between px-1 mb-4">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                List (<span id="countDisplay">0</span>)
+            </span>
+            <div class="flex gap-2">
+                <button id="exportBtn" class="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-slate-800">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export
+                </button>
+                <button id="clearAllBtn" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-slate-800">
+                    Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Main List -->
+        <ul id="nameList" class="space-y-3 pb-20">
+            <!-- List Items injected here -->
+        </ul>
+        
+        <!-- Empty State (Hidden by default) -->
+        <div id="emptyState" class="hidden text-center py-16 rounded-2xl border border-dashed bg-white border-slate-300 dark:bg-slate-800 dark:border-slate-700">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 bg-slate-50 dark:bg-slate-700">
+                <svg class="w-6 h-6 text-slate-300 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <p class="font-medium text-slate-500 dark:text-slate-400">List is empty</p>
+        </div>
+
+        <!-- No Results State (Hidden by default) -->
+        <div id="noResults" class="hidden text-center py-12">
+            <p class="text-slate-500">No matches found</p>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 text-sm z-50 font-medium border border-white/10">
+        <svg class="w-4 h-4 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span id="toastMessage">Notification</span>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let state = {
+            names: JSON.parse(localStorage.getItem('myPeopleList')) || [],
+            darkMode: JSON.parse(localStorage.getItem('pk_darkMode')) || false,
+            inputValue: '',
+            searchTerm: '',
+            sortOption: 'newest',
+            editingId: null,
+            editValue: ''
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            html: document.documentElement,
+            themeToggle: document.getElementById('themeToggle'),
+            addForm: document.getElementById('addForm'),
+            nameInput: document.getElementById('nameInput'),
+            addButton: document.getElementById('addButton'),
+            nameList: document.getElementById('nameList'),
+            emptyState: document.getElementById('emptyState'),
+            noResults: document.getElementById('noResults'),
+            toolbar: document.getElementById('toolbar'),
+            globalActions: document.getElementById('globalActions'),
+            countDisplay: document.getElementById('countDisplay'),
+            searchInput: document.getElementById('searchInput'),
+            clearSearch: document.getElementById('clearSearch'),
+            sortSelect: document.getElementById('sortSelect'),
+            exportBtn: document.getElementById('exportBtn'),
+            clearAllBtn: document.getElementById('clearAllBtn'),
+            toast: document.getElementById('toast'),
+            toastMessage: document.getElementById('toastMessage')
+        };
+
+        // --- Icons (SVG Strings) ---
+        const icons = {
+            sun: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+            moon: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+            clock: `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            edit: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            trash: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+            check: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`,
+            x: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+        };
+
+        // --- Core Logic ---
+
+        const save = () => {
+            localStorage.setItem('myPeopleList', JSON.stringify(state.names));
+            render();
+        };
+
+        const saveTheme = () => {
+            localStorage.setItem('pk_darkMode', JSON.stringify(state.darkMode));
+            renderTheme();
+        };
+
+        const formatDate = (iso) => {
+            const date = new Date(iso || Date.now());
+            return new Intl.DateTimeFormat('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }).format(date);
+        };
+
+        const showToast = (msg) => {
+            els.toastMessage.textContent = msg;
+            els.toast.classList.remove('hidden');
+            els.toast.classList.add('animate-fade-in-up');
+            setTimeout(() => {
+                els.toast.classList.remove('animate-fade-in-up');
+                els.toast.classList.add('hidden');
+            }, 2500);
+        };
+
+        const getProcessedNames = () => {
+            let processed = state.names.filter(p => 
+                p.text.toLowerCase().includes(state.searchTerm.toLowerCase())
+            );
+
+            processed.sort((a, b) => {
+                if (state.sortOption === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+                if (state.sortOption === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+                if (state.sortOption === 'az') return a.text.localeCompare(b.text);
+                if (state.sortOption === 'za') return b.text.localeCompare(a.text);
+                return 0;
+            });
+            return processed;
+        };
+
+        // --- Rendering ---
+
+        const renderTheme = () => {
+            if (state.darkMode) {
+                els.html.classList.add('dark');
+                els.themeToggle.innerHTML = icons.sun;
+            } else {
+                els.html.classList.remove('dark');
+                els.themeToggle.innerHTML = icons.moon;
+            }
+        };
+
+        const render = () => {
+            const processed = getProcessedNames();
+            const hasItems = state.names.length > 0;
+
+            // Toggle visibility of layout blocks
+            if (hasItems) {
+                els.toolbar.classList.remove('hidden');
+                els.globalActions.classList.remove('hidden');
+                els.emptyState.classList.add('hidden');
+            } else {
+                els.toolbar.classList.add('hidden');
+                els.globalActions.classList.add('hidden');
+                els.emptyState.classList.remove('hidden');
+            }
+
+            // No Search Results
+            if (processed.length === 0 && hasItems) {
+                els.noResults.classList.remove('hidden');
+            } else {
+                els.noResults.classList.add('hidden');
+            }
+
+            // Update Counts
+            els.countDisplay.textContent = processed.length;
+
+            // Update Input Button State
+            els.addButton.disabled = !state.inputValue.trim();
+
+            // Render List Items
+            els.nameList.innerHTML = processed.map(person => {
+                const isEditing = state.editingId === person.id;
+                const letter = person.text.charAt(0).toUpperCase();
+                const timeStr = formatDate(person.createdAt);
+
+                // CSS Classes
+                const containerClass = isEditing 
+                    ? `group p-4 rounded-xl shadow-sm border transition-all duration-200 bg-white border-indigo-500 ring-1 ring-indigo-500 dark:bg-slate-800`
+                    : `group p-4 rounded-xl shadow-sm border transition-all duration-200 bg-white border-slate-200/60 hover:border-indigo-300 hover:shadow-md dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600`;
+
+                if (isEditing) {
+                    return `
+                    <li class="${containerClass}">
+                        <div class="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                class="edit-input flex-1 min-w-0 bg-transparent border-b outline-none text-sm py-1 font-medium text-slate-800 border-indigo-500 dark:text-white"
+                                value="${state.editValue}"
+                            >
+                            <button data-action="save" data-id="${person.id}" class="p-1.5 rounded-md bg-green-500 text-white hover:bg-green-600 transition-colors">
+                                ${icons.check}
+                            </button>
+                            <button data-action="cancel" class="p-1.5 rounded-md bg-slate-500 text-white hover:bg-slate-600 transition-colors">
+                                ${icons.x}
+                            </button>
+                        </div>
+                    </li>`;
+                }
+
+                return `
+                <li class="${containerClass}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4 overflow-hidden">
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-lg font-bold shadow-sm">
+                                ${letter}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold truncate pr-4 text-slate-800 dark:text-slate-200">
+                                    ${person.text}
+                                </p>
+                                <div class="flex items-center text-xs text-slate-400 mt-0.5 gap-1">
+                                    ${icons.clock}
+                                    <span>${timeStr}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button
+                                data-action="edit" data-id="${person.id}"
+                                class="p-2 rounded-lg transition-colors text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
+                                title="Edit"
+                            >
+                                ${icons.edit}
+                            </button>
+                            <button
+                                data-action="delete" data-id="${person.id}"
+                                class="p-2 rounded-lg transition-colors text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-slate-700 dark:hover:text-red-400"
+                                title="Delete"
+                            >
+                                ${icons.trash}
+                            </button>
+                        </div>
+                    </div>
+                </li>`;
+            }).join('');
+
+            // Focus input if editing
+            if (state.editingId) {
+                const input = document.querySelector('.edit-input');
+                if (input) {
+                    input.focus();
+                    // Move cursor to end
+                    const val = input.value;
+                    input.value = '';
+                    input.value = val;
+                }
+            }
+        };
+
+        // --- Event Listeners ---
+
+        // Theme Toggle
+        els.themeToggle.addEventListener('click', () => {
+            state.darkMode = !state.darkMode;
+            saveTheme();
+        });
+
+        // Input Handling
+        els.nameInput.addEventListener('input', (e) => {
+            state.inputValue = e.target.value;
+            render(); // To update button disabled state
+        });
+
+        els.addForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const trimmed = state.inputValue.trim();
+            if (trimmed) {
+                state.names.unshift({
+                    id: Date.now(),
+                    text: trimmed,
+                    createdAt: new Date().toISOString()
+                });
+                state.inputValue = '';
+                els.nameInput.value = '';
+                save();
+                showToast('Person added successfully!');
+            }
+        });
+
+        // Search
+        els.searchInput.addEventListener('input', (e) => {
+            state.searchTerm = e.target.value;
+            if (state.searchTerm) {
+                els.clearSearch.classList.remove('hidden');
+            } else {
+                els.clearSearch.classList.add('hidden');
+            }
+            render();
+        });
+
+        els.clearSearch.addEventListener('click', () => {
+            state.searchTerm = '';
+            els.searchInput.value = '';
+            els.clearSearch.classList.add('hidden');
+            render();
+        });
+
+        // Sort
+        els.sortSelect.addEventListener('change', (e) => {
+            state.sortOption = e.target.value;
+            render();
+        });
+
+        // Clear All
+        els.clearAllBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the entire list?')) {
+                state.names = [];
+                save();
+                showToast('All entries cleared.');
+            }
+        });
+
+        // Export
+        els.exportBtn.addEventListener('click', () => {
+            if (state.names.length === 0) return;
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + "Name,Created At\n"
+                + state.names.map(row => `${row.text},${row.createdAt}`).join("\n");
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "people_list.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('List downloaded as CSV');
+        });
+
+        // List Interaction (Edit, Delete, Save, Cancel) - Event Delegation
+        els.nameList.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            const id = Number(btn.dataset.id);
+
+            if (action === 'delete') {
+                if (confirm('Delete this person?')) {
+                    state.names = state.names.filter(n => n.id !== id);
+                    // Also clear editing if we deleted the item being edited
+                    if (state.editingId === id) state.editingId = null;
+                    save();
+                    showToast('Entry removed.');
+                }
+            } else if (action === 'edit') {
+                const person = state.names.find(n => n.id === id);
+                if (person) {
+                    state.editingId = id;
+                    state.editValue = person.text;
+                    render();
+                }
+            } else if (action === 'cancel') {
+                state.editingId = null;
+                state.editValue = '';
+                render();
+            } else if (action === 'save') {
+                const input = btn.parentElement.querySelector('input');
+                const newVal = input.value.trim();
+                if (newVal) {
+                    state.names = state.names.map(p => 
+                        p.id === id ? { ...p, text: newVal } : p
+                    );
+                    state.editingId = null;
+                    save();
+                    showToast('Name updated!');
+                }
+            }
+        });
+
+        // Capture input changes in edit mode to update state
+        els.nameList.addEventListener('input', (e) => {
+            if (e.target.classList.contains('edit-input')) {
+                state.editValue = e.target.value;
+            }
+        });
+
+        // Handle Enter key in edit mode
+        els.nameList.addEventListener('keydown', (e) => {
+            if (e.target.classList.contains('edit-input') && e.key === 'Enter') {
+                const saveBtn = e.target.parentElement.querySelector('button[data-action="save"]');
+                if (saveBtn) saveBtn.click();
+            }
+        });
+
+        // Initial Boot
+        renderTheme();
+        render();
+
+    </script>
+</body>
+</html>
 
